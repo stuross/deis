@@ -1,7 +1,7 @@
 [Unit]
 Description=deis-controller
-Requires=deis-logger.service
-After=deis-logger.service
+Requires=deis-logger.1.service
+After=deis-logger.1.service
 
 [Service]
 EnvironmentFile=/etc/environment
@@ -14,4 +14,4 @@ ExecStart=/bin/sh -c "IMAGE=`/run/deis/bin/get_image /deis/controller` && docker
 WantedBy=multi-user.target
 
 [X-Fleet]
-X-ConditionMachineOf=deis-logger.service
+X-ConditionMachineOf=deis-logger.1.service
