@@ -19,59 +19,48 @@ define deis_units
 	  sed -n 's/\(deis-.*\.service\).*/\1/p' | tr '\n' ' ')
 endef
 
+define install_data_container
+	$(shell UNIT=`basename $$1` ; \
+		if [[ `$(FLEETCTL) list-units | grep $$UNIT` ]]; then \
+		  echo $$UNIT already loaded. Skipping... ; \
+		else \
+			UNIT_NAME=`echo $$1 | sed "s/BOOTID/$$2/g"`; \
+			$(FLEETCTL) load $$UNIT_NAME ; \
+		fi ; \
+	)
+endef
+
 # TODO: re-evaluate the fragile start order
-COMPONENTS=builder cache controller database logger registry
-ALL_COMPONENTS=$(COMPONENTS) router
-START_COMPONENTS=registry logger cache database
-
-ALL_UNITS = $(foreach C,$(COMPONENTS),$(wildcard $(C)/systemd/*.service))
-START_UNITS = $(foreach C,$(START_COMPONENTS),$(wildcard $(C)/systemd/*.service))
-
-DATA_CONTAINER_TEMPLATES=builder/systemd/deis-builder-data.service database/systemd/deis-database-data.service logger/systemd/deis-logger-data.service registry/systemd/deis-registry-data.service
+COMPONENTS=builder cache controller database logger registry router
+START_UNITS = registry/systemd/deis-registry.service logger/systemd/deis-logger.service cache/systemd/deis-cache.service database/systemd/deis-database.service
+DATA_CONTAINER_TEMPLATES=builder/systemd/deis-builder-data@BOOTID.service database/systemd/deis-database-data@BOOTID.service logger/systemd/deis-logger-data@BOOTID.service registry/systemd/deis-registry-data@BOOTID.service
 
 all: build run
 
 build: rsync
-	$(call ssh_all,'cd share && for c in $(ALL_COMPONENTS); do cd $$c && docker build -t deis/$$c . && cd ..; done')
+	$(call ssh_all,'cd share && for c in $(COMPONENTS); do cd $$c && docker build -t deis/$$c . && cd ..; done')
 
 clean: uninstall
-	$(call ssh_all,'for c in $(ALL_COMPONENTS); do docker rm -f deis-$$c; done')
+	$(call ssh_all,'for c in $(COMPONENTS); do docker rm -f deis-$$c; done')
 
 full-clean: clean
-	$(call ssh_all,'for c in $(ALL_COMPONENTS); do docker rmi deis-$$c; done')
+	$(call ssh_all,'for c in $(COMPONENTS); do docker rmi deis-$$c; done')
 
 install: check-fleet install-routers install-data-containers
 	$(FLEETCTL) load $(START_UNITS)
-	$(FLEETCTL) load controller/systemd/*.service
-	$(FLEETCTL) load builder/systemd/*.service
+	$(FLEETCTL) load controller/systemd/deis-controller.service
+	$(FLEETCTL) load builder/systemd/deis-builder.service
 
 install-data-containers: check-fleet
-	@$(foreach T, $(DATA_CONTAINER_TEMPLATES), \
-		UNIT=`basename $(T)` ; \
-		if [[ `$(FLEETCTL) list-units | grep $$UNIT` ]]; then \
-		  echo $$UNIT already loaded. Skipping... ; \
-		else \
-			cp $(T).template . ; \
-			NEW_FILENAME=`ls *.template | sed 's/\.template//g'`; \
-			mv *.template $$NEW_FILENAME ; \
-			MACHINE_ID=`$(FLEETCTL) list-machines --no-legend --full list-machines | awk 'BEGIN { OFS="\t"; srand() } { print rand(), $$1 }' | sort -n | cut -f2- | head -1` ; \
-			sed -e "s/CHANGEME/$$MACHINE_ID/" $$NEW_FILENAME > $$NEW_FILENAME.bak ; \
-			rm -f $$NEW_FILENAME ; \
-			mv $$NEW_FILENAME.bak $$NEW_FILENAME ; \
-			$(FLEETCTL) load $$NEW_FILENAME ; \
-			rm -f $$NEW_FILENAME ; \
-		fi ; \
-	)
+	$(call install_data_container,)
 
 install-routers: check-fleet
 	@$(foreach R, $(ROUTER_UNITS), \
-		cp router/systemd/deis-router.service ./$(R) ; \
 		$(FLEETCTL) load ./$(R) ; \
-		rm -f ./$(R) ; \
 	)
 
 pull:
-	$(call ssh_all,'for c in $(ALL_COMPONENTS); do docker pull deis/$$c:latest; done')
+	$(call ssh_all,'for c in $(COMPONENTS); do docker pull deis/$$c:latest; done')
 	$(call ssh_all,'docker pull deis/slugrunner:latest')
 
 restart: stop start
@@ -95,7 +84,7 @@ start: check-fleet start-warning start-routers
 
 	@# controller
 	$(call echo_yellow,"Waiting for deis-controller to start...")
-	$(FLEETCTL) start -no-block controller/systemd/*
+	$(FLEETCTL) start -no-block controller/systemd/deis-controller.service
 	@until $(FLEETCTL) list-units | egrep -q "deis-controller.+(running|failed)"; \
 		do sleep 2; \
 			printf "\033[0;33mStatus:\033[0m "; $(FLEETCTL) list-units | \
@@ -106,7 +95,7 @@ start: check-fleet start-warning start-routers
 
 	@# builder
 	$(call echo_yellow,"Waiting for deis-builder to start...")
-	$(FLEETCTL) start -no-block builder/systemd/*.service
+	$(FLEETCTL) start -no-block builder/systemd/deis-builder.service
 	@until $(FLEETCTL) list-units | egrep -q "deis-builder.+(running|failed)"; \
 		do sleep 2; \
 			printf "\033[0;33mStatus:\033[0m "; $(FLEETCTL) list-units | \
@@ -141,7 +130,7 @@ stop: check-fleet
 test: test-components test-integration
 
 test-components:
-	@$(foreach C,$(ALL_COMPONENTS), \
+	@$(foreach C,$(COMPONENTS), \
 		echo \\nTesting deis/$(C) ; \
 		$(MAKE) -C $(C) test ; \
 	)

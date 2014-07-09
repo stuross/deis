@@ -14,4 +14,4 @@ ExecStart=/bin/sh -c "IMAGE=`/run/deis/bin/get_image /deis/logger` && docker run
 WantedBy=multi-user.target
 
 [X-Fleet]
-X-ConditionMachineOf=deis-logger-data.service
+X-ConditionMachineOf=deis-logger-data@%i.service

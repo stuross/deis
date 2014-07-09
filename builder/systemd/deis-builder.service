@@ -15,4 +15,4 @@ ExecStartPost=/bin/sh -c "echo 'Waiting for builder on 2223/tcp...' && until cat
 WantedBy=multi-user.target
 
 [X-Fleet]
-X-ConditionMachineOf=deis-builder-data.service
+X-ConditionMachineOf=deis-builder-data@%i.service

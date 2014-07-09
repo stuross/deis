@@ -15,4 +15,4 @@ ExecStartPost=/bin/sh -c "echo 'Waiting for listener on 5000/tcp...' && until ca
 WantedBy=multi-user.target
 
 [X-Fleet]
-X-ConditionMachineOf=deis-registry-data.service
+X-ConditionMachineOf=deis-registry-data@%i.service

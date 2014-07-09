@@ -15,4 +15,4 @@ ExecStop=/bin/bash -c "nsenter --pid --uts --mount --ipc --net --target $(docker
 WantedBy=multi-user.target
 
 [X-Fleet]
-X-ConditionMachineOf=deis-database-data.service
+X-ConditionMachineOf=deis-database-data@%i.service

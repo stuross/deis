@@ -12,4 +12,4 @@ ExecStart=/bin/sh -c "IMAGE=`/run/deis/bin/get_image /deis/router` && docker run
 WantedBy=multi-user.target
 
 [X-Fleet]
-X-Conflicts=deis-router.*.service
+X-Conflicts=deis-router@*.service
