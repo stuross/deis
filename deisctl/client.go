@@ -8,6 +8,7 @@ import (
 
 	"github.com/coreos/fleet/client"
 	"github.com/coreos/fleet/job"
+	"github.com/coreos/fleet/unit"
 )
 
 // Client interface used to interact with the cluster control plane
@@ -39,18 +40,42 @@ func NewClient() (*FleetClient, error) {
 // Create schedules a new unit for the given component
 // and blocks until the unit is loaded
 func (c *FleetClient) Create(component string) (err error) {
+	// if we have a data container, we first schedule that
+	if hasDataContainer(component) {
+		unitName := "deis-" + component + "-data.service"
+		templateName := unitName + ".template"
+		unit, nerr := NewUnit(component, templateName, c)
+		if nerr != nil {
+			fmt.Errorf("error generating unit for %s: %v", component, nerr)
+			return
+		}
+		nerr = c.createUnit(unit, unitName)
+		if nerr != nil {
+			return nerr
+		}
+	}
 	num, err := c.nextUnit(component)
 	if err != nil {
+		fmt.Errorf("error getting next unit for %s: %v", component, err)
 		return
 	}
+	fmt.Printf("calling formatUnitName for %s", component)
 	unitName, err := formatUnitName(component, num)
 	if err != nil {
+		fmt.Errorf("error getting unit name for %s: %v", component, err)
 		return
 	}
-	unit, err := NewUnit(component)
+	fmt.Printf("calling NewUnit for %s", component)
+	templateName := "deis-" + component + ".service"
+	unit, err := NewUnit(component, templateName, c)
 	if err != nil {
+		fmt.Errorf("error generating unit for %s: %v", component, err)
 		return
 	}
+	return c.createUnit(unit, unitName)
+}
+
+func (c *FleetClient) createUnit(unit *unit.Unit, unitName string) (err error){
 	j := job.NewJob(unitName, *unit)
 	if err := c.Fleet.CreateJob(j); err != nil {
 		return fmt.Errorf("failed creating job %s: %v", unitName, err)

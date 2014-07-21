@@ -79,3 +79,11 @@ func splitComponentTarget(target string) (c string, num int, err error) {
 	}
 	return
 }
+
+// returns true if a component has a data container, false otherwise
+func hasDataContainer(component string) (bool) {
+	switch component {
+		default: return false
+		case "builder", "database", "logger", "registry": return true
+	}
+}
