@@ -1,0 +1,9 @@
+[template]
+src   = "swift.conf"
+dest  = "/etc/swift/swift.conf"
+uid = 0
+gid = 0
+mode  = "0644"
+keys = [
+  "/deis/store",
+]

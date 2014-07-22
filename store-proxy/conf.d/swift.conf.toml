@@ -1,0 +1,9 @@
+[template]
+src   = "proxy-server.conf"
+dest  = "/etc/swift/proxy-server.conf"
+uid = 0
+gid = 0
+mode  = "0644"
+keys = [
+  "/deis/store",
+]
